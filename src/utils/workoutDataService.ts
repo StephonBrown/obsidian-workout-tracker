@@ -2,7 +2,23 @@ import { App, TFile, Notice } from "obsidian";
 import { Workout, Exercise } from "../types";
 import { parseYaml, stringifyYaml } from "obsidian";
 
-export class WorkoutFileService {
+export interface WorkoutStatistics {
+  totalWorkouts: number;
+  totalExercises: number;
+  totalSets: number;
+  totalVolume: number; // total weight lifted
+  averageWorkoutDuration: number;
+  exerciseFrequency: Record<string, number>;
+  workoutsByDate: Record<string, Workout[]>;
+  personalRecords: Record<
+    string,
+    { weight: number; reps: number; date: string }
+  >;
+  workoutStreak: number;
+  lastWorkoutDate: string;
+}
+
+export class WorkoutDataService {
   app: App;
   workoutFolder: string;
 
@@ -94,9 +110,9 @@ export class WorkoutFileService {
   }
 
   /**
-   * Load all workouts from the workout folder
+   * Load all workouts and calculate statistics
    */
-  async loadAllWorkouts(): Promise<Workout[]> {
+  async getWorkoutStatistics(): Promise<WorkoutStatistics> {
     const workoutFiles = await this.getAllWorkoutFiles();
     const workouts: Workout[] = [];
 
@@ -107,23 +123,7 @@ export class WorkoutFileService {
       }
     }
 
-    return workouts;
-  }
-
-  /**
-   * Check if a file is a workout file by checking for workoutTracker frontmatter
-   */
-  async isWorkoutFile(file: TFile): Promise<boolean> {
-    try {
-      const content = await this.app.vault.read(file);
-      const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
-      if (!frontmatterMatch) return false;
-
-      const frontmatter = parseYaml(frontmatterMatch[1]);
-      return frontmatter?.workoutTracker === true;
-    } catch (error) {
-      return false;
-    }
+    return this.calculateStatistics(workouts);
   }
 
   /**
@@ -201,29 +201,29 @@ export class WorkoutFileService {
     fallbackName: string
   ): Workout | null {
     try {
-      // Extract frontmatter
+      // This regex matches the frontmatter section at the start of the file and captures everything between the `---` markers.
       const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
       if (!frontmatterMatch) {
         console.warn(`No frontmatter found in workout file: ${fallbackName}`);
         return null;
       }
-
+      // Get the YAML content from the frontmatter
       const yamlContent = frontmatterMatch[1];
-      const frontmatter = parseYaml(yamlContent);
+      const frontmatterContent = parseYaml(yamlContent);
 
       // Validate and construct workout object
-      if (!frontmatter || !frontmatter.workoutTracker) {
+      if (!frontmatterContent || !frontmatterContent.workoutTracker) {
         console.warn(`Invalid workout frontmatter in file: ${fallbackName}`);
         return null;
       }
 
       const workout: Workout = {
-        id: frontmatter.id || Date.now().toString(),
-        date: frontmatter.date || new Date().toISOString().split("T")[0],
-        name: frontmatter.name || fallbackName,
-        exercises: this.parseExercises(frontmatter.exercises || []),
-        duration: frontmatter.duration,
-        notes: frontmatter.notes,
+        id: frontmatterContent.id || Date.now().toString(),
+        date: frontmatterContent.date || new Date().toISOString().split("T")[0],
+        name: frontmatterContent.name || fallbackName,
+        exercises: this.parseExercises(frontmatterContent.exercises || []),
+        duration: frontmatterContent.duration,
+        notes: frontmatterContent.notes,
       };
 
       return workout;
@@ -246,5 +246,125 @@ export class WorkoutFileService {
       sets: exerciseData.sets || [],
       notes: exerciseData.notes,
     }));
+  }
+
+  /**
+   * Calculate comprehensive workout statistics
+   */
+  private calculateStatistics(workouts: Workout[]): WorkoutStatistics {
+    const stats: WorkoutStatistics = {
+      totalWorkouts: workouts.length,
+      totalExercises: 0,
+      totalSets: 0,
+      totalVolume: 0,
+      averageWorkoutDuration: 0,
+      exerciseFrequency: {},
+      workoutsByDate: {},
+      personalRecords: {},
+      workoutStreak: 0,
+      lastWorkoutDate: "",
+    };
+
+    if (workouts.length === 0) {
+      return stats;
+    }
+
+    // Sort workouts by date
+    const sortedWorkouts = workouts.sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+    stats.lastWorkoutDate = sortedWorkouts[sortedWorkouts.length - 1].date;
+
+    let totalDuration = 0;
+    let durationCount = 0;
+
+    workouts.forEach((workout) => {
+      // Count exercises and sets
+      stats.totalExercises += workout.exercises.length;
+
+      // Group workouts by date
+      if (!stats.workoutsByDate[workout.date]) {
+        stats.workoutsByDate[workout.date] = [];
+      }
+      stats.workoutsByDate[workout.date].push(workout);
+
+      // Duration
+      if (workout.duration) {
+        totalDuration += workout.duration;
+        durationCount++;
+      }
+
+      workout.exercises.forEach((exercise) => {
+        // Exercise frequency
+        stats.exerciseFrequency[exercise.name] =
+          (stats.exerciseFrequency[exercise.name] || 0) + 1;
+
+        stats.totalSets += exercise.sets.length;
+
+        exercise.sets.forEach((set) => {
+          // Total volume (weight × reps)
+          if (set.weight && set.reps) {
+            stats.totalVolume += set.weight * set.reps;
+          }
+
+          // Personal records (max weight for each exercise)
+          if (set.weight && set.reps) {
+            const currentPR = stats.personalRecords[exercise.name];
+            if (
+              !currentPR ||
+              set.weight > currentPR.weight ||
+              (set.weight === currentPR.weight && set.reps > currentPR.reps)
+            ) {
+              stats.personalRecords[exercise.name] = {
+                weight: set.weight,
+                reps: set.reps,
+                date: workout.date,
+              };
+            }
+          }
+        });
+      });
+    });
+
+    // Calculate average duration
+    if (durationCount > 0) {
+      stats.averageWorkoutDuration = totalDuration / durationCount;
+    }
+
+    // Calculate workout streak
+    stats.workoutStreak = this.calculateWorkoutStreak(sortedWorkouts);
+
+    return stats;
+  }
+
+  /**
+   * Calculate current workout streak
+   */
+  private calculateWorkoutStreak(sortedWorkouts: Workout[]): number {
+    if (sortedWorkouts.length === 0) return 0;
+
+    const today = new Date();
+    const uniqueDates = [...new Set(sortedWorkouts.map((w) => w.date))].sort();
+
+    let streak = 0;
+    let currentDate = new Date(today);
+
+    // Check backwards from today
+    for (let i = uniqueDates.length - 1; i >= 0; i--) {
+      const workoutDate = new Date(uniqueDates[i]);
+      const diffDays = Math.floor(
+        (currentDate.getTime() - workoutDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      if (diffDays <= 1) {
+        // Allow for today or yesterday
+        streak++;
+        currentDate = workoutDate;
+      } else {
+        break;
+      }
+    }
+
+    return streak;
   }
 }
