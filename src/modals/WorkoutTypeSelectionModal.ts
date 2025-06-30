@@ -18,10 +18,10 @@ export class WorkoutTypeSelectionModal extends Modal {
     contentEl.createEl("h2", { text: "Workout Tracker" });
 
     new Setting(contentEl)
-      .setName("Log New Workout")
+      .setName("Add New Workout")
       .setDesc("Create a detailed workout with multiple exercises")
       .addButton((btn) =>
-        btn.setButtonText("Start Workout").onClick(() => {
+        btn.setButtonText("Add Workout").onClick(() => {
           this.close();
           new WorkoutModal(this.app, this.plugin).open();
         })
