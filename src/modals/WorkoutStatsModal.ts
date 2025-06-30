@@ -9,7 +9,7 @@ import WorkoutTrackerPlugin from "../plugin";
 export class WorkoutStatsModal extends Modal {
   plugin: WorkoutTrackerPlugin;
   fileService: WorkoutFileService;
-  statsService: WorkoutStatisticsService;
+  statisticsService: WorkoutStatisticsService;
 
   constructor(app: App, plugin: WorkoutTrackerPlugin) {
     super(app);
@@ -18,7 +18,7 @@ export class WorkoutStatsModal extends Modal {
       app,
       plugin.settings.defaultWorkoutFolder
     );
-    this.statsService = new WorkoutStatisticsService();
+    this.statisticsService = new WorkoutStatisticsService();
   }
 
   async onOpen() {
@@ -32,7 +32,7 @@ export class WorkoutStatsModal extends Modal {
 
     try {
       const workouts = await this.fileService.loadAllWorkouts();
-      const stats = this.statsService.calculateStatistics(workouts);
+      const stats = this.statisticsService.calculateStatistics(workouts);
       loadingEl.remove();
       this.renderStatistics(contentEl, stats);
     } catch (error) {
@@ -137,7 +137,7 @@ export class WorkoutStatsModal extends Modal {
 
         try {
           const workouts = await this.fileService.loadAllWorkouts();
-          const newStats = this.statsService.calculateStatistics(workouts);
+          const newStats = this.statisticsService.calculateStatistics(workouts);
           loadingEl.remove();
           this.renderStatistics(container, newStats);
         } catch (error) {
