@@ -78,10 +78,10 @@ export class WorkoutFileService {
    */
   async getAllWorkoutFiles(): Promise<TFile[]> {
     const folder = this.app.vault.getAbstractFileByPath(this.workoutFolder);
-    if (!folder || !(folder instanceof this.app.vault.adapter.constructor)) {
+
+    if (!folder) {
       return [];
     }
-
     const files = this.app.vault
       .getMarkdownFiles()
       .filter(
