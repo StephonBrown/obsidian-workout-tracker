@@ -1,20 +1,26 @@
-import { App, Editor, MarkdownFileInfo, MarkdownView, Notice, Plugin } from 'obsidian';
+import { App, Editor, MarkdownFileInfo, MarkdownView, Notice, Plugin, TFile } from 'obsidian';
 import { WorkoutTrackerSettings, Workout } from './types';
 import { DEFAULT_SETTINGS } from './settings/defaults';
-import { WorkoutFileGenerator } from './utils/workoutGenerator';
+import { WorkoutFileService } from './utils/workoutFileService';
 import { 
 	WorkoutModal, 
 	ExerciseTemplateModal, 
 	QuickWorkoutModal, 
-    WorkoutTypeSelectionModal
+    WorkoutTypeSelectionModal,
+	WorkoutStatsModal,
+	WorkoutEditModal
 } from './modals';
 import { WorkoutTrackerSettingTab } from './settings';
 
 export default class WorkoutTrackerPlugin extends Plugin {
 	settings: WorkoutTrackerSettings;
+	fileService: WorkoutFileService;
 
 	async onload() {
 		await this.loadSettings();
+		
+		// Initialize file service
+		this.fileService = new WorkoutFileService(this.app, this.settings.defaultWorkoutFolder);
 
 		// This creates an icon in the left ribbon.
 		const ribbonIconEl = this.addRibbonIcon('biceps-flexed', 'Workout Tracker', (evt: MouseEvent) => {
@@ -66,6 +72,28 @@ export default class WorkoutTrackerPlugin extends Plugin {
 			}
 		});
 
+		this.addCommand({
+			id: 'view-workout-statistics',
+			name: 'View Workout Statistics',
+			callback: () => {
+				new WorkoutStatsModal(this.app, this).open();
+			}
+		});
+
+		this.addCommand({
+			id: 'edit-current-workout',
+			name: 'Edit Current Workout',
+			checkCallback: (checking: boolean) => {
+				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (markdownView && markdownView.file) {
+					if (!checking) {
+						this.editWorkoutFile(markdownView.file);
+					}
+					return true;
+				}
+			}
+		});
+
 		this.addSettingTab(new WorkoutTrackerSettingTab(this.app, this));
 	}
 
@@ -75,6 +103,11 @@ export default class WorkoutTrackerPlugin extends Plugin {
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		
+		// Update file service if it exists
+		if (this.fileService) {
+			this.fileService = new WorkoutFileService(this.app, this.settings.defaultWorkoutFolder);
+		}
 	}
 
 	async saveSettings() {
@@ -82,22 +115,23 @@ export default class WorkoutTrackerPlugin extends Plugin {
 	}
 
 	async createWorkoutFile(workout: Workout): Promise<void> {
-		const folder = this.settings.defaultWorkoutFolder;
-		const fileName = `${workout.date} - ${workout.name}.md`;
-		const filePath = `${folder}/${fileName}`;
-
-		// Ensure the folder exists
-		if (!this.app.vault.getAbstractFileByPath(folder)) {
-			await this.app.vault.createFolder(folder);
-		}
-
-		const content = WorkoutFileGenerator.generateWorkoutContent(workout);
-		
 		try {
-			await this.app.vault.create(filePath, content);
-			new Notice(`Workout logged: ${fileName}`);
+			await this.fileService.saveWorkout(workout);
 		} catch (error) {
 			new Notice(`Error creating workout file: ${error.message}`);
+		}
+	}
+
+	async editWorkoutFile(file: TFile): Promise<void> {
+		try {
+			const workout = await this.fileService.loadWorkout(file);
+			if (workout) {
+				new WorkoutEditModal(this.app, this, file, workout).open();
+			} else {
+				new Notice('This file does not contain valid workout data');
+			}
+		} catch (error) {
+			new Notice(`Error loading workout file: ${error.message}`);
 		}
 	}
 }
