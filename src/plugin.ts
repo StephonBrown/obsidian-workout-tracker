@@ -1,6 +1,7 @@
 import {
   App,
   Editor,
+  EventRef,
   MarkdownFileInfo,
   MarkdownView,
   Notice,
@@ -23,6 +24,8 @@ import { WorkoutTrackerSettingTab } from "./settings";
 export default class WorkoutTrackerPlugin extends Plugin {
   settings: WorkoutTrackerSettings;
   fileService: WorkoutFileService;
+  private fileModifyEventRef: EventRef | undefined;
+  private syncTimeouts: Map<string, NodeJS.Timeout> = new Map();
 
   async onload() {
     await this.loadSettings();
@@ -32,6 +35,13 @@ export default class WorkoutTrackerPlugin extends Plugin {
       this.app,
       this.settings.defaultWorkoutFolder
     );
+
+    // Register file modification event handler for workout files
+    this.fileModifyEventRef = this.app.vault.on(
+      "modify",
+      this.handleFileModify.bind(this)
+    );
+    this.registerEvent(this.fileModifyEventRef);
 
     // This creates an icon in the left ribbon.
     const ribbonIconEl = this.addRibbonIcon(
@@ -117,7 +127,16 @@ export default class WorkoutTrackerPlugin extends Plugin {
     this.addSettingTab(new WorkoutTrackerSettingTab(this.app, this));
   }
 
-  onunload() {}
+  onunload() {
+    // Clean up event handlers
+    if (this.fileModifyEventRef) {
+      this.app.vault.offref(this.fileModifyEventRef);
+    }
+    
+    // Clear any pending sync timeouts
+    this.syncTimeouts.forEach(timeout => clearTimeout(timeout));
+    this.syncTimeouts.clear();
+  }
 
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -154,5 +173,50 @@ export default class WorkoutTrackerPlugin extends Plugin {
     } catch (error) {
       new Notice(`Error loading workout file: ${error.message}`);
     }
+  }
+
+  /**
+   * Handle file modification events for workout files with debouncing
+   */
+  private handleFileModify(file: TFile): void {
+    // Check if auto-sync is enabled
+    if (!this.settings.enableAutoSyncFrontmatter) {
+      return;
+    }
+
+    // Only process markdown files
+    if (file.extension !== "md") {
+      return;
+    }
+
+    // Clear existing timeout for this file
+    const existingTimeout = this.syncTimeouts.get(file.path);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    // Set a new timeout to sync after user stops typing
+    const timeout = setTimeout(async () => {
+      try {
+        // Check if this is a workout file
+        const isWorkout = await this.fileService.isWorkoutFile(file);
+        if (!isWorkout) {
+          return;
+        }
+
+        // Sync frontmatter with file content
+        const wasUpdated = await this.fileService.syncFrontmatterWithContent(file);
+        if (wasUpdated) {
+          console.log(`Auto-synced frontmatter for: ${file.path}`);
+        }
+      } catch (error) {
+        console.error(`Error syncing frontmatter for ${file.path}:`, error);
+      } finally {
+        // Remove the timeout from the map
+        this.syncTimeouts.delete(file.path);
+      }
+    }, this.settings.autoSyncDelayMs); // Use configurable delay
+
+    this.syncTimeouts.set(file.path, timeout);
   }
 }

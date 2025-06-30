@@ -1,46 +1,48 @@
 export interface WorkoutTrackerSettings {
-	defaultWorkoutFolder: string;
-	exerciseTemplates: ExerciseTemplate[];
-	workoutTemplates: WorkoutTemplate[];
-	enableAutoComplete: boolean;
-	dateFormat: string;
+  defaultWorkoutFolder: string;
+  exerciseTemplates: ExerciseTemplate[];
+  workoutTemplates: WorkoutTemplate[];
+  enableAutoComplete: boolean;
+  enableAutoSyncFrontmatter: boolean;
+  autoSyncDelayMs: number;
+  dateFormat: string;
 }
 
 export interface ExerciseTemplate {
-	name: string;
-	type: 'strength' | 'cardio' | 'flexibility' | 'other';
-	defaultSets?: number;
-	defaultReps?: number;
-	defaultWeight?: number;
-	defaultDuration?: number;
-	muscleGroups: string[];
+  name: string;
+  type: "strength" | "cardio" | "flexibility" | "other";
+  defaultSets?: number;
+  defaultReps?: number;
+  defaultWeight?: number;
+  defaultDuration?: number;
+  muscleGroups: string[];
 }
 
 export interface WorkoutTemplate {
-	name: string;
-	exercises: string[];
-	estimatedDuration: number;
+  name: string;
+  exercises: string[];
+  estimatedDuration: number;
 }
 
 export interface Exercise {
-	name: string;
-	sets: ExerciseSet[];
-	notes?: string;
+  name: string;
+  sets: ExerciseSet[];
+  notes?: string;
 }
 
 export interface ExerciseSet {
-	reps?: number;
-	weight?: number;
-	duration?: number;
-	distance?: number;
-	restTime?: number;
+  reps?: number;
+  weight?: number;
+  duration?: number;
+  distance?: number;
+  restTime?: number;
 }
 
 export interface Workout {
-	id: string;
-	date: string;
-	name: string;
-	exercises: Exercise[];
-	duration?: number;
-	notes?: string;
+  id: string;
+  date: string;
+  name: string;
+  exercises: Exercise[];
+  duration?: number;
+  notes?: string;
 }
