@@ -10,6 +10,9 @@ A comprehensive workout tracking plugin for Obsidian that helps you log exercise
 - 🎯 **Quick Actions**: Ribbon icon and command palette integration
 - 📅 **Date Management**: Automatic date formatting and file organization
 - 🔧 **Customizable**: Configurable folders, templates, and settings
+- 📈 **Statistics & Analytics**: View comprehensive workout statistics and progress tracking
+- ✏️ **Frontmatter Storage**: Workout data stored in YAML frontmatter for easy parsing and editing
+- 🔄 **Edit Workouts**: Edit existing workouts with full frontmatter synchronization
 
 ## Installation
 
@@ -32,11 +35,22 @@ This plugin will be available in the Obsidian Community Plugins directory once a
 1. Click the workout icon in the ribbon, or
 2. Use the command palette: "Workout Tracker: Create New Workout"
 3. Fill in workout details and add exercises
-4. Save to create a new workout file
+4. Save to create a new workout file with frontmatter
 
 ### Quick Workout Logging
 
 Use "Workout Tracker: Quick Log Workout" to select from predefined workout templates for faster logging.
+
+### Viewing Statistics
+
+Use "Workout Tracker: View Workout Statistics" to see comprehensive analytics about your workout progress.
+
+### Editing Existing Workouts
+
+1. Open any workout file created by the plugin
+2. Use "Workout Tracker: Edit Current Workout" command
+3. Modify exercises, sets, or notes
+4. Save to update the frontmatter automatically
 
 ### Exercise Templates
 
@@ -44,9 +58,24 @@ Insert exercise templates directly into your notes using "Workout Tracker: Inser
 
 ### Workout File Format
 
-The plugin creates structured markdown files with tables for tracking:
+The plugin creates structured markdown files with YAML frontmatter for data storage and human-readable content below:
 
 ```markdown
+---
+id: "1672531200000"
+date: "2025-06-26"
+name: "Morning Run"
+duration: 30
+exercises:
+  - name: "Running"
+    sets:
+      - duration: 30
+        distance: 3
+    notes: "Good pace, felt strong"
+notes: "Beautiful morning for a run"
+workoutTracker: true
+---
+
 # Morning Run
 
 **Date:** 2025-06-26
@@ -57,11 +86,26 @@ The plugin creates structured markdown files with tables for tracking:
 ### Running
 
 | Set | Reps | Weight | Duration | Distance | Rest |
-|-----|------|--------|----------|----------|------|
+| --- | ---- | ------ | -------- | -------- | ---- |
 | 1   | -    | -      | 30       | 3        | -    |
 
-**Notes:** Good pace, felt strong throughout
+**Notes:** Good pace, felt strong
+
+## Notes
+
+Beautiful morning for a run
 ```
+
+### Statistics & Analytics
+
+Access comprehensive workout statistics including:
+
+- Total workouts, exercises, and sets
+- Total volume (weight lifted)
+- Exercise frequency analysis
+- Personal records tracking
+- Workout streaks
+- Recent activity summaries
 
 ## Configuration
 
@@ -95,6 +139,28 @@ npm run build
 - `tsconfig.json` - TypeScript configuration
 - `esbuild.config.mjs` - Build configuration
 
+## Architecture
+
+### Modular Service Design
+
+The plugin uses a clean separation of concerns with two main services:
+
+#### **WorkoutFileService**
+
+- Handles all file operations (save, load, update workout files)
+- Manages frontmatter parsing and generation
+- Ensures data integrity with graceful error handling
+- Supports multiple workouts per day with unique timestamps
+
+#### **WorkoutStatisticsService**
+
+- Calculates comprehensive workout statistics
+- Tracks exercise frequency and personal records
+- Computes workout streaks and progress metrics
+- Provides time period analysis and progression tracking
+
+This separation makes the codebase more maintainable, testable, and allows for easy extension of either file handling or statistical features.
+
 ## Features in Detail
 
 ### Exercise Types Supported
@@ -113,8 +179,6 @@ npm run build
 
 ## Contributing
 
-
-
 ## License
 
 MIT License - see LICENSE file for details
@@ -122,6 +186,7 @@ MIT License - see LICENSE file for details
 ## Support
 
 If you find this plugin helpful, consider:
+
 - ⭐ Starring the repository
 - 🐛 Reporting bugs via GitHub issues
 - 💡 Suggesting features
@@ -129,6 +194,7 @@ If you find this plugin helpful, consider:
 ## Changelog
 
 ### 1.0.0
+
 - Initial release
 - Basic workout and exercise tracking
 - Template system
