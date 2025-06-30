@@ -25,6 +25,7 @@ export default class WorkoutTrackerPlugin extends Plugin {
   settings: WorkoutTrackerSettings;
   fileService: WorkoutFileService;
   private fileModifyEventRef: EventRef | undefined;
+  // A map that holds timouts for each file to debounce sync operations
   private syncTimeouts: Map<string, NodeJS.Timeout> = new Map();
 
   async onload() {
@@ -132,9 +133,9 @@ export default class WorkoutTrackerPlugin extends Plugin {
     if (this.fileModifyEventRef) {
       this.app.vault.offref(this.fileModifyEventRef);
     }
-    
+
     // Clear any pending sync timeouts
-    this.syncTimeouts.forEach(timeout => clearTimeout(timeout));
+    this.syncTimeouts.forEach((timeout) => clearTimeout(timeout));
     this.syncTimeouts.clear();
   }
 
@@ -205,7 +206,9 @@ export default class WorkoutTrackerPlugin extends Plugin {
         }
 
         // Sync frontmatter with file content
-        const wasUpdated = await this.fileService.syncFrontmatterWithContent(file);
+        const wasUpdated = await this.fileService.syncFrontmatterWithContent(
+          file
+        );
         if (wasUpdated) {
           console.log(`Auto-synced frontmatter for: ${file.path}`);
         }
